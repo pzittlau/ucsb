@@ -11,10 +11,12 @@ CMakeCache.txt
 *.ninja
 .clang-format
 .vscode/
+core
 
 # Temporary files and folders
 db_main/
 tmp/
+bench/
 .scripts/.log
 code-review*.bak
 

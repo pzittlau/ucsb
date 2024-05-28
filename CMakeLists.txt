@@ -15,6 +15,7 @@ option(UCSB_BUILD_WIREDTIGER "Build WiredTiger for the benchmark" ON)
 option(UCSB_BUILD_MONGODB "Build MongoDB for the benchmark" OFF)
 option(UCSB_BUILD_REDIS "Build Redis for the benchmark" OFF)
 option(UCSB_BUILD_LMDB "Build LMDB for the benchmark" OFF)
+option(UCSB_BUILD_HAURA "Build Haura for the benchmark" ON)
 
 #######################################################################################################################
 # Set compiler
@@ -54,7 +55,7 @@ message(STATUS "Python3_SITELIB: ${Python3_SITELIB}")
 
 # Export the compilation report, that can be later be reused by static 
 # analysis tools and other apps like SourceTrail.
-set(CMAKE_EXPORT_COMPILE_COMMANDS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -112,7 +113,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -funsafe-math-optimizations")
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-omit-frame-pointer")
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmax-errors=1")  
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmax-errors=5")  
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 else ()
@@ -172,6 +173,14 @@ if(${UCSB_BUILD_LMDB})
   include("${CMAKE_MODULE_PATH}/lmdb.cmake")
   list(APPEND UCSB_DB_LIBS "lmdb")
   target_compile_definitions(ucsb_bench PUBLIC UCSB_HAS_LMDB=1) 
+endif()
+
+if(${UCSB_BUILD_HAURA})
+  set(HAURA_LIBRARY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/haura/libbetree_storage_stack.a")
+  target_include_directories(ucsb_bench PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/haura/)
+  list(APPEND UCSB_DB_LIBS "${HAURA_LIBRARY_PATH}")
+  target_link_libraries(ucsb_bench ${CMAKE_CURRENT_SOURCE_DIR}/src/haura/libbetree_storage_stack.a)
+  target_compile_definitions(ucsb_bench PUBLIC UCSB_HAS_HAURA=1)
 endif()
 
 set(CXX_TARGET_LINK_LIBRARIES z uring benchmark fmt ${UCSB_DB_LIBS})

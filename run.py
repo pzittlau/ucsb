@@ -18,13 +18,14 @@ Note there are some databases and sizes commented by default just to minimize th
 """
 
 db_names = [
-    "ustore",
-    "rocksdb",
+    # "ustore",
+    # "rocksdb",
     "leveldb",
-    "wiredtiger",
+    # "wiredtiger",
     # "mongodb",
     # "redis",
     # "lmdb",
+    "haura",
 ]
 
 sizes = [
@@ -156,13 +157,14 @@ def run(
     if run_in_docker_container:
         runner = f"docker run -v {os.getcwd()}/bench:/ucsb/bench -v {os.getcwd()}/tmp:/ucsb/tmp -it ucsb-image-dev"
     else:
-        runner = "./build_release/build/bin/ucsb_bench"
+        # runner = "./build_release/build/bin/ucsb_bench"
+        runner = "./build_debug/build/bin/ucsb_bench"
         if not os.path.exists(runner):
             raise Exception("First, please build the runner: `build_release.sh`")
 
-    process = pexpect.spawn(
-        f'{runner} -db {db_name} {transactional_flag} -cfg "{db_config_file_path}" -wl "{workloads_file_path}" -md "{db_main_dir_path}" -sd "{db_storage_dir_paths}" -res "{results_file_path}" -th {threads_count} -fl {filter} -ri {run_index} -rc {runs_count}'
-    )
+    command = f'{runner} -db {db_name} {transactional_flag} -cfg "{db_config_file_path}" -wl "{workloads_file_path}" -md "{db_main_dir_path}" -sd "{db_storage_dir_paths}" -res "{results_file_path}" -th {threads_count} -fl {filter} -ri {run_index} -rc {runs_count}'
+    print(command)
+    process = pexpect.spawn(command)
     process.interact()
     process.close()
 
@@ -287,9 +289,9 @@ def check_args():
 
 
 def main() -> None:
-    if os.geteuid() != 0:
-        print(termcolor.colored(f"Run as sudo!", "red"))
-        sys.exit(-1)
+    # if os.geteuid() != 0:
+    #     print(termcolor.colored(f"Run as sudo!", "red"))
+    #     sys.exit(-1)
 
     parse_args()
     check_args()
