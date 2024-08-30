@@ -7,6 +7,9 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <vector>
+#include <fstream>
+#include <filesystem>
 
 extern "C" {
 #include "betree.h"
@@ -42,7 +45,7 @@ using transaction_t = ucsb::transaction_t;
 
 class hauradb_t : public ucsb::db_t {
 public:
-  inline hauradb_t() {}
+  inline hauradb_t(): cfg_(nullptr), db_(nullptr), betree_db_(nullptr), dataset_(nullptr), created_dataset_(false) {}
 
   void set_config(fs::path const &config_path, fs::path const &main_dir_path,
                   std::vector<fs::path> const &storage_dir_paths,
@@ -81,10 +84,13 @@ private:
   fs::path main_dir_path_;
   std::vector<fs::path> storage_dir_paths_;
 
+  using my_cfg_t = betree_h::cfg_t;
   betree_h::cfg_t *cfg_;
   ucsb::db_t *db_;
   betree_h::database_t *betree_db_; // Pointer to Haura's db_t
   betree_h::ds_t *dataset_;
+
+  bool created_dataset_;
 };
 
 void hauradb_t::set_config(fs::path const &config_path,
@@ -95,58 +101,76 @@ void hauradb_t::set_config(fs::path const &config_path,
   main_dir_path_ = main_dir_path;
   storage_dir_paths_ = storage_dir_paths;
 
-  // Create a Betree configuration
-  betree_h::err_t *err = nullptr;
-  cfg_ = betree_h::betree_configuration_from_env(&err);
+  // std::cout << "Config path: " << config_path_ << std::endl;
+  // std::cout << "Main dir path: " << main_dir_path_ << std::endl;
+  // std::cout << "Storage dir paths: ";
+  // for (auto const &path : storage_dir_paths_) {
+  //   std::cout << path << " ";
+  // }
+  // std::cout << std::endl;
 
+  // load the configuration from the config_path file
+  std::ifstream file(config_path_);
+  if (!file) {
+    throw exception_t("Failed to open config file\n");
+  }
+  // std::string file_content((std::istreambuf_iterator<char>(file)),
+  //                          std::istreambuf_iterator<char>());
+  // const char* config_cstr = file_content.c_str();
+  // unsigned int config_len = file_content.size();
+  betree_h::err_t *err = nullptr;
+  // std::cout << config_cstr << std::endl;
+  // std::cout << config_len << std::endl;
+  // cfg_ = betree_h::betree_parse_configuration(&config_cstr, config_len, &err);
+  cfg_ = betree_h::betree_configuration_from_env(&err);
   // Handle potential errors during configuration creation
   if (err != nullptr) {
     betree_h::betree_print_error(err);
     betree_h::betree_free_err(err);
-    throw exception_t("Failed to load Betree configuration from environment\n");
+    throw exception_t("\nFailed to create Haura configuration\n");
   }
-
-  // Set the number of disks for the Betree configuration
-  // const char **disk_paths = new const char *[storage_dir_paths_.size()];
-  // for (size_t i = 0; i < storage_dir_paths_.size(); ++i) {
-  //   disk_paths[i] = storage_dir_paths_[i].c_str();
-  // }
-  // betree_h::betree_configuration_set_disks(cfg_, disk_paths,
-  //                                          storage_dir_paths_.size());
-  // delete[] disk_paths;
 }
 
 bool hauradb_t::open(std::string &error) {
-  if (betree_db_)
-    return true;
-
-  betree_h::err_t *err = nullptr;
-  betree_db_ = betree_h::betree_open_or_create_db(cfg_, &err);
-  if (err != nullptr) {
-    betree_h::betree_print_error(err);
-    betree_h::betree_free_err(err);
-    error = "Failed to open Haura database\n";
-    return false;
+  if (!betree_db_) {
+    betree_h::err_t *err = nullptr;
+    betree_db_ = betree_h::betree_open_or_create_db(cfg_, &err);
+    if (err != nullptr) {
+      betree_h::betree_print_error(err);
+      betree_h::betree_free_err(err);
+      error = "\nFailed to open Haura database\n";
+      return false;
+    }
   }
 
   // Open the dataset
-  betree_h::err_t *err_ds = nullptr;
-  int err_int = betree_h::betree_create_ds(betree_db_, "main", 4, get_storage_pref_none(), &err_ds);
-  if (err_ds != nullptr || err_int != 0) {
-    betree_h::betree_print_error(err);
-    betree_h::betree_free_err(err_ds);
-    error = "Failed to open Haura dataset\n";
-    return false;
+  if (!created_dataset_) {
+    betree_h::err_t *err_ds = nullptr;
+    int err_int = betree_h::betree_create_ds(betree_db_, "main", 4,
+                                             get_storage_pref_none(), &err_ds);
+    if (err_ds != nullptr || err_int != 0) {
+      betree_h::betree_print_error(err_ds);
+      betree_h::betree_free_err(err_ds);
+      error = "\nFailed to create Haura dataset\n";
+      return false;
+    }
+    created_dataset_ = true;
   }
 
-  dataset_ = betree_h::betree_open_ds(betree_db_, "main", 4,
-                                      get_storage_pref_none(), &err_ds);
-  if (err_ds != nullptr) {
-    betree_h::betree_print_error(err);
-    betree_h::betree_free_err(err_ds);
-    error = "Failed to open Haura dataset\n";
-    return false;
+  if (!dataset_) {
+    betree_h::err_t *err_ds = nullptr;
+    dataset_ = betree_h::betree_open_ds(betree_db_, "main", 4,
+                                        get_storage_pref_none(), &err_ds);
+    if (err_ds != nullptr) {
+      betree_h::betree_print_error(err_ds);
+      betree_h::betree_free_err(err_ds);
+      error = "\nFailed to open Haura dataset\n";
+      return false;
+    }
   }
+
+  // TODO: Test read, write, delete here
+  // Sync database for peace of mind
 
   return true;
 }
@@ -154,6 +178,16 @@ bool hauradb_t::open(std::string &error) {
 void hauradb_t::close() {
   if (!betree_db_)
     return;
+
+  // int betree_close_ds(struct database_t *db, struct ds_t *ds, struct err_t **err);
+  // betree_h::err_t *err_ds = nullptr;
+  // int err = betree_h::betree_close_ds(betree_db_, dataset_, &err_ds);
+  // if (err_ds != nullptr || err != 0) {
+  //   betree_h::betree_print_error(err_ds);
+  //   betree_h::betree_free_err(err_ds);
+  //   throw exception_t("\nFailed to close Haura dataset\n");
+  // }
+
 
   betree_h::betree_close_db(betree_db_);
   betree_db_ = nullptr;
@@ -168,16 +202,17 @@ void hauradb_t::flush() {
   if (err != nullptr) {
     betree_h::betree_print_error(err);
     betree_h::betree_free_err(err);
-    throw exception_t("Failed to flush Haura database\n");
+    throw exception_t("\nFailed to flush Haura database\n");
   }
 }
 
 operation_result_t hauradb_t::upsert(key_t key, value_spanc_t value) {
   betree_h::err_t *err = nullptr;
   int res = betree_h::betree_dataset_upsert(
-      dataset_, reinterpret_cast<char const *>(&key), sizeof(key),
-      reinterpret_cast<char const *>(value.data()), value.size(), 0,
+      dataset_, reinterpret_cast<const char *>(&key), sizeof(key),
+      reinterpret_cast<const char *>(value.data()), value.size(), 0,
       get_storage_pref_none(), &err);
+
   if (err != nullptr) {
     betree_h::betree_print_error(err);
     betree_h::betree_free_err(err);
@@ -220,6 +255,7 @@ operation_result_t hauradb_t::read(key_t key, value_span_t value) const {
   if (res)
     return {0, operation_status_t::not_found_k};
 
+  // Do we need to resize the value?
   memcpy(value.data(), betree_value.ptr, betree_value.len);
   betree_h::betree_free_byte_slice(&betree_value);
 
@@ -236,7 +272,8 @@ operation_result_t hauradb_t::batch_upsert(keys_spanc_t keys,
         dataset_, reinterpret_cast<char const *>(&keys[idx]), sizeof(key_t),
         reinterpret_cast<char const *>(values.data() + offset), sizes[idx], 0,
         get_storage_pref_none(), &err);
-    if (err != nullptr) {
+    if (err != nullptr || res != 0) {
+      std::cout << __LINE__;
       betree_h::betree_print_error(err);
       betree_h::betree_free_err(err);
       return {0, operation_status_t::error_k};
@@ -280,6 +317,8 @@ operation_result_t hauradb_t::bulk_load(keys_spanc_t keys,
 
 operation_result_t hauradb_t::range_select(key_t key, size_t length,
                                            values_span_t values) const {
+  // TODO: because of the interface of the betree we need to first get the high
+  // key and get the range with the help of that
   betree_h::err_t *err = nullptr;
   betree_h::range_iter_t *range_iter = betree_h::betree_dataset_range(
       dataset_, reinterpret_cast<char const *>(&key), sizeof(key_t),
