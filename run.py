@@ -158,8 +158,8 @@ def run(
     if run_in_docker_container:
         runner = f"docker run -v {os.getcwd()}/bench:/ucsb/bench -v {os.getcwd()}/tmp:/ucsb/tmp -it ucsb-image-dev"
     else:
-        # runner = "./build_release/build/bin/ucsb_bench"
-        runner = "./build_debug/build/bin/ucsb_bench"
+        runner = "./build_release/build/bin/ucsb_bench"
+        # runner = "./build_debug/build/bin/ucsb_bench"
         if not os.path.exists(runner):
             raise Exception("First, please build the runner: `build_release.sh`")
 

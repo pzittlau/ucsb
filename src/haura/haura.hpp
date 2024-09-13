@@ -110,10 +110,10 @@ void hauradb_t::set_config(fs::path const &config_path,
   // std::cout << std::endl;
 
   // load the configuration from the config_path file
-  std::ifstream file(config_path_);
-  if (!file) {
-    throw exception_t("Failed to open config file\n");
-  }
+  // std::ifstream file(config_path_);
+  // if (!file) {
+  //   throw exception_t("Failed to open config file\n");
+  // }
   // std::string file_content((std::istreambuf_iterator<char>(file)),
   //                          std::istreambuf_iterator<char>());
   // const char* config_cstr = file_content.c_str();
