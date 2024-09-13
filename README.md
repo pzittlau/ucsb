@@ -19,7 +19,9 @@ Refactored and Extended with Batch and Range Queries<br/>
 
 ---
 
-Please see `BENCHMARKING.md` and `TODO.md` for further informations mainly focused on [Haura](https://github.com/parcio/haura).
+Please see [`BENCHMARKING.md`](https://github.com/pzittlau/ucsb/blob/main/BENCHMARKING.md) and [`TODO.md`](https://github.com/pzittlau/ucsb/blob/main/TODO.md) for further informations mainly focused on [Haura](https://github.com/parcio/haura).
+
+---
 
 Unum Cloud Serving Benchmark is the grandchild of Yahoo Cloud Serving Benchmark, reimplemented in C++, with fewer mutexes or other bottlenecks, and with additional "batch" and "range" workloads, crafted specifically for the Big Data age!
 
